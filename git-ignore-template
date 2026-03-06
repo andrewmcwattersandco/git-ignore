@@ -1,0 +1,59 @@
+#!/bin/sh
+# git-ignore-template(1) - Generate multilingual .gitignore files from github/gitignore
+#
+# USAGE
+#   git ignore-template [--append] <template> [<template> ...]
+#
+# EXAMPLES
+#   git ignore-template Go Python
+#   git ignore-template C C++ Node
+#   git ignore-template --append Java Maven
+#
+# INSTALL
+#   Place this file on your PATH as `git-ignore-template` and make it executable.
+#   e.g. cp git-ignore-template /usr/local/bin/git-ignore-template && chmod +x /usr/local/bin/git-ignore-template
+
+set -e
+
+GITIGNORE_BASE_URL="https://raw.githubusercontent.com/github/gitignore/main"
+APPEND=0
+
+usage() {
+    printf 'usage: git ignore-template [--append] <template> [<template> ...]\n' >&2
+    exit 1
+}
+
+if [ $# -eq 0 ]; then
+    usage
+fi
+
+if [ "$1" = "--append" ]; then
+    APPEND=1
+    shift
+fi
+
+if [ $# -eq 0 ]; then
+    usage
+fi
+
+if [ "$APPEND" -eq 0 ]; then
+    printf '' > .gitignore
+fi
+
+for lang in "$@"
+do
+    url="${GITIGNORE_BASE_URL}/${lang}.gitignore"
+    if ! curl -sf "$url" >> .gitignore; then
+        printf 'git-ignore-template: warning: no template found for "%s"\n' "$lang" >&2
+    fi
+done
+
+# go.mod: the Go template ignores *.mod which conflicts with go.mod being
+# tracked. Strip that rule if it was fetched.
+case " $* " in
+    *" Go "*)
+        tmp=$(mktemp)
+        grep -v '^\*\.mod' .gitignore > "$tmp"
+        mv "$tmp" .gitignore
+        ;;
+esac
